@@ -35,18 +35,19 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     QWidget* centralWidget = new QWidget(this);
     QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
     setCentralWidget(centralWidget);
-    // 创建图像显示标签并设置为左上角四分之一区域
+
+    // 创建图像显示标签
     image_label = new QLabel(this);
     image_label->setText("Waiting for image...");
-    image_label->setAlignment(Qt::AlignCenter);
-    image_label->setStyleSheet("border: 1px solid black;");  // 添加边框
+    //image_label->setAlignment(Qt::AlignCenter);
+    image_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    image_label->setStyleSheet("border: 1px solid black;");
     mainLayout->addWidget(image_label);
 
     // 连接信号槽
     QObject::connect(&qnode, SIGNAL(rosShutdown()), this, SLOT(close()));
     QObject::connect(&qnode, SIGNAL(topicDataReceived(const std::string&)),this, SLOT(updateStatusBar(const std::string&)));
     QObject::connect(&qnode, SIGNAL(imageReceived(const QImage&)),this, SLOT(updateImage(const QImage&)));
-    //setCentralWidget(image_label);  // 如果没有其他中心部件
 
     if (qnode.init()) {
         toolBar->setEnabled(true);

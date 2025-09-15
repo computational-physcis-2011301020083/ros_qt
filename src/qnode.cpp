@@ -21,6 +21,7 @@ namespace class1_ros_qt_demo {
 QNode::QNode(int argc, char** argv)
     : init_argc(argc)
     , init_argv(argv)
+    , image_transport(nullptr)
 {}
 
 QNode::~QNode()
@@ -30,6 +31,12 @@ QNode::~QNode()
         ros::waitForShutdown();
     }
     wait();
+
+    // 清理资源
+        if (image_transport) {
+            delete image_transport;
+            image_transport = nullptr;
+        }
 
 }
 
@@ -43,9 +50,9 @@ bool QNode::init()
     ros::NodeHandle n;
     topic_subscriber = n.subscribe("model_sensor", 10, &QNode::topicCallback, this);
 
-    // 初始化图像传输并订阅摄像头话题
-    image_transport::ImageTransport it(n);
-    image_subscriber = it.subscribe("camera/image_raw", 100, &QNode::imageCallback, this);
+    // 初始化图像传输
+        image_transport = new image_transport::ImageTransport(n);
+        image_subscriber = image_transport->subscribe("camera/image_raw", 10, &QNode::imageCallback, this);
 
     start();
     return true;
@@ -53,7 +60,12 @@ bool QNode::init()
 
 void QNode::run()
 {
-    ros::spin();
+    ros::Rate loop_rate(30);  // 30Hz循环
+    while (ros::ok()) {
+        ros::spinOnce();
+        loop_rate.sleep();
+    }
+    ROS_INFO("Ros shutdown, proceeding to close the gui.");
     Q_EMIT rosShutdown();
 }
 
@@ -72,22 +84,49 @@ void QNode::topicCallback(const std_msgs::Float64MultiArray::ConstPtr& msg)
 // 实现图像回调函数：将ROS图像转换为QImage并发送信号
 void QNode::imageCallback(const sensor_msgs::Image::ConstPtr& msg)
 {
+    if (!msg) return;  // 检查消息指针是否有效
+
     try {
-        // 将ROS图像消息转换为OpenCV格式，使用RGB8格式
-        cv_bridge::CvImageConstPtr cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::RGB8);
-        cv::Mat cv_image = cv_ptr->image;
+        // 尝试转换为RGB8格式
+        cv_bridge::CvImageConstPtr cv_ptr;
+        if (msg->encoding == "bgr8") {
+            cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::BGR8);
+        } else {
+            // 转换为RGB8格式
+            cv_ptr = cv_bridge::toCvShare(msg, sensor_msgs::image_encodings::RGB8);
+        }
 
-        // 转换为QImage，使用Qt 5支持的Format_RGB888格式
-        QImage q_image(cv_image.data,
-                      cv_image.cols,
-                      cv_image.rows,
-                      cv_image.step,
-                      QImage::Format_RGB888);  // 修正为Qt 5支持的格式
+        const cv::Mat& cv_image = cv_ptr->image;
+        if (cv_image.empty()) {
+            ROS_WARN("Received empty image!");
+            return;
+        }
 
-        // 发送信号到UI线程
+        QImage q_image;
+        if (msg->encoding == "bgr8") {
+            // BGR到RGB的转换
+            q_image = QImage(cv_image.data,
+                           cv_image.cols,
+                           cv_image.rows,
+                           cv_image.step,
+                           QImage::Format_RGB888).rgbSwapped();
+        } else {
+            // 直接使用RGB格式
+            q_image = QImage(cv_image.data,
+                           cv_image.cols,
+                           cv_image.rows,
+                           cv_image.step,
+                           QImage::Format_RGB888);
+        }
+
+        // 确保图像数据深拷贝，避免内存问题
+        q_image = q_image.copy();
+
         Q_EMIT imageReceived(q_image);
     } catch (cv_bridge::Exception& e) {
         ROS_ERROR("cv_bridge exception: %s", e.what());
+    } catch (...) {
+        ROS_ERROR("Unknown error while processing image!");
     }
 }
 

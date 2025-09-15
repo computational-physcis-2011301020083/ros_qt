@@ -40,6 +40,7 @@ private:
     char** init_argv;
     ros::Subscriber topic_subscriber;
     void topicCallback(const std_msgs::Float64MultiArray::ConstPtr& msg);
+    image_transport::ImageTransport* image_transport;  // 使用指针以便安全初始化
     image_transport::Subscriber image_subscriber;  // 图像订阅器
     void imageCallback(const sensor_msgs::Image::ConstPtr& msg);  // 图像回调函数
 };
