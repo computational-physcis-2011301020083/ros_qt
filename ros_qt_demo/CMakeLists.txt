@@ -11,11 +11,15 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 ##############################################################################
 
 # qt_build provides the qt cmake glue, roscpp the comms for a default talker
-find_package(catkin REQUIRED COMPONENTS roscpp)
+find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge image_transport sensor_msgs)
 include_directories(${catkin_INCLUDE_DIRS})
 #add
 find_package(Qt5 REQUIRED Core Widgets)
 set(QT_LIBRARIES Qt5::Widgets)
+#image
+#find_package (OpenCV 4.0.0 REQUIRED)
+find_package(OpenCV REQUIRED)
+include_directories ("/usr/include/opencv4/")
 # Use this to define what the package will export (e.g. libs, headers).
 # Since the default here is to produce only a binary, we don't worry about
 # exporting anything. 
@@ -54,6 +58,6 @@ file(GLOB_RECURSE QT_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} FOLLOW_SYMLINK
 ##############################################################################
 
 add_executable(ros_qt_demo ${QT_SOURCES} ${QT_RESOURCES_CPP} ${QT_FORMS_HPP} ${QT_MOC_HPP})
-target_link_libraries(ros_qt_demo ${QT_LIBRARIES} ${catkin_LIBRARIES})
+target_link_libraries(ros_qt_demo ${QT_LIBRARIES} ${catkin_LIBRARIES}  ${OpenCV_LIBS})
 install(TARGETS ros_qt_demo RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 

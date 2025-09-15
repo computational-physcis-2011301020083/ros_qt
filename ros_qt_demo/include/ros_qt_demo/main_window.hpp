@@ -11,6 +11,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QToolBar>
 #include <QStatusBar>
+#include <QLabel>  // 用于显示图像
 #include "qnode.hpp"
 
 namespace class1_ros_qt_demo {
@@ -26,11 +27,13 @@ public:
 
 public Q_SLOTS:
     void updateStatusBar(const std::string& data);
+    void updateImage(const QImage& image);  // 新增图像更新槽函数
 
 private:
     QToolBar* toolBar;
     QStatusBar* statusBar;
     QNode qnode;
+    QLabel* image_label;  // 图像显示标签
 };
 
 }  // namespace class1_ros_qt_demo
