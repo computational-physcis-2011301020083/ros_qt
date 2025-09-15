@@ -49,13 +49,12 @@ void QNode::run()
 void QNode::topicCallback(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
     std::stringstream dataStream;
-    dataStream << "Received data: ";
-    for (size_t i = 0; i < msg->data.size(); ++i) {
-        dataStream << msg->data[i];
-        if (i < msg->data.size() - 1) {
-            dataStream << ", ";
-        }
-    }
+    dataStream << std::fixed << std::setprecision(2);
+    dataStream << "Sensor State(degree): ";
+    dataStream << "Excavator Swing Angle: " << msg->data[0]*180/M_PI<< ", ";
+    dataStream << "Boom Angle: " << msg->data[1]*180/M_PI<< ", ";
+    dataStream << "Arm Angle: " << msg->data[2]*180/M_PI<< ", ";
+    dataStream << "Bucket Angle: " << msg->data[3]*180/M_PI<< ".";
     Q_EMIT topicDataReceived(dataStream.str());
 }
 
