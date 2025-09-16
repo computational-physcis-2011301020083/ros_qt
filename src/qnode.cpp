@@ -33,10 +33,10 @@ QNode::~QNode()
     wait();
 
     // 清理资源
-        if (image_transport) {
-            delete image_transport;
-            image_transport = nullptr;
-        }
+    if (image_transport) {
+        delete image_transport;
+        image_transport = nullptr;
+    }
 
 }
 
@@ -51,8 +51,8 @@ bool QNode::init()
     topic_subscriber = n.subscribe("model_sensor", 10, &QNode::topicCallback, this);
 
     // 初始化图像传输
-        image_transport = new image_transport::ImageTransport(n);
-        image_subscriber = image_transport->subscribe("camera/image_raw", 10, &QNode::imageCallback, this);
+    image_transport = new image_transport::ImageTransport(n);
+    image_subscriber = image_transport->subscribe("camera/image_raw", 10, &QNode::imageCallback, this);
 
     start();
     return true;

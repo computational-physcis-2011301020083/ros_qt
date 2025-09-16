@@ -11,8 +11,8 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 ##############################################################################
 
 # qt_build provides the qt cmake glue, roscpp the comms for a default talker
-find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge image_transport sensor_msgs)
-include_directories(${catkin_INCLUDE_DIRS})
+find_package(catkin REQUIRED COMPONENTS roscpp cv_bridge image_transport sensor_msgs rviz  tf2_ros)
+include_directories(${catkin_INCLUDE_DIRS} ${rviz_INCLUDE_DIRS}  ${Qt5Core_INCLUDE_DIRS}  ${Qt5Widgets_INCLUDE_DIRS})
 #add
 find_package(Qt5 REQUIRED Core Widgets)
 set(QT_LIBRARIES Qt5::Widgets)
@@ -58,6 +58,6 @@ file(GLOB_RECURSE QT_SOURCES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} FOLLOW_SYMLINK
 ##############################################################################
 
 add_executable(ros_qt_demo ${QT_SOURCES} ${QT_RESOURCES_CPP} ${QT_FORMS_HPP} ${QT_MOC_HPP})
-target_link_libraries(ros_qt_demo ${QT_LIBRARIES} ${catkin_LIBRARIES}  ${OpenCV_LIBS})
+target_link_libraries(ros_qt_demo ${QT_LIBRARIES} ${catkin_LIBRARIES}  ${OpenCV_LIBS} ${rviz_LIBRARIES}  ${Qt5Core_LIBRARIES}  ${Qt5Widgets_LIBRARIES})
 install(TARGETS ros_qt_demo RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
