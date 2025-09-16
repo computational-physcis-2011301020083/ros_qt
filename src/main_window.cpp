@@ -12,6 +12,13 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <QMetaType>
+#include <QVector3D>
+#include <rviz/tool_manager.h>
+#include <rviz/visualization_manager.h>
+#include <rviz/render_panel.h>
+#include <rviz/display.h>
+#include <rviz/properties/property.h>
+#include <rviz/default_plugin/view_controllers/orbit_view_controller.h>
 #include "../include/ros_qt_demo/main_window.hpp"
 
 namespace class1_ros_qt_demo {
@@ -24,17 +31,23 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     qRegisterMetaType<std::string>("std::string");
     qRegisterMetaType<QImage>("QImage");
 
-    // 创建工具栏
-    toolBar = addToolBar("ToolBar");
-
-    // 创建状态栏
-    statusBar = new QStatusBar(this);
-    setStatusBar(statusBar);
-
     // 创建中心部件和布局
-    QWidget* centralWidget = new QWidget(this);
-    QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
-    setCentralWidget(centralWidget);
+    //QWidget* centralWidget = new QWidget(this);
+    //QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
+    //setCentralWidget(centralWidget);
+
+    // 初始化中心部件和布局
+    central_widget = new QWidget(this);
+    setCentralWidget(central_widget);
+    main_layout = new QHBoxLayout(central_widget);  // 主布局：左右各占1/2宽度
+
+    // 左侧布局（放原图，占左半部分1/2宽度）
+    left_layout = new QVBoxLayout();
+    main_layout->addLayout(left_layout, 1);  // 权重1（总宽度的1/2）
+
+    // 右侧布局（分上下两部分，各占1/2高度）
+    right_layout = new QVBoxLayout();
+    main_layout->addLayout(right_layout, 1);  // 权重1（总宽度的1/2）
 
     // 创建图像显示标签
     image_label = new QLabel(this);
@@ -42,7 +55,71 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     //image_label->setAlignment(Qt::AlignCenter);
     image_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     image_label->setStyleSheet("border: 1px solid black;");
-    mainLayout->addWidget(image_label);
+    //mainLayout->addWidget(image_label);
+    left_layout->addWidget(image_label, 1);  // 权重1，占左侧部分高度
+
+    // RViz面板（右下角四分之一区域）
+    rviz_panel = new rviz::RenderPanel();
+    right_layout->addStretch(1);  // 上半部分留白（占右侧1/2高度）
+    right_layout->addWidget(rviz_panel, 1);  // 下半部分放RViz（占右侧1/2高度）
+
+    // 配置RViz
+    rviz_frame = new rviz::VisualizationFrame();
+    rviz_frame->initialize();
+    rviz_manager = rviz_frame->getManager();
+    rviz_manager ->initialize();
+    rviz_manager ->startUpdate();
+
+    // 设置RViz显示属性
+    rviz_frame->setSplashPath("");
+    rviz_frame->loadDisplayConfig("");
+    rviz_frame->setMenuBar(nullptr);
+    rviz_frame->setStatusBar(nullptr);
+    rviz_frame->setHideButtonVisibility(false);
+
+
+    // 添加URDF显示（修正后的代码）
+    rviz::Display* robot_model_display = rviz_manager->createDisplay(
+        "rviz/RobotModel",
+        "Robot Model",
+        true
+    );
+
+    if (robot_model_display) {
+        robot_model_display->subProp("Robot Description")->setValue("robot_description");
+    }
+    else {
+        ROS_ERROR("Failed to create RobotModel display!");
+        return;
+    }
+
+    // 方法 1：尝试 "Visual Enabled"（ROS Noetic 常见）
+    if (robot_model_display->subProp("Visual Enabled")) {
+        robot_model_display->subProp("Visual Enabled")->setValue(true);
+    }
+    // 方法 2：尝试 "Visual" -> "Enabled"
+    else if (robot_model_display->subProp("Visual")) {
+        robot_model_display->subProp("Visual")->subProp("Enabled")->setValue(true);
+    }
+    // 方法 3：直接打印所有属性调试
+    else {
+        ROS_WARN("Cannot find 'Show Visual' or 'Visual Enabled' property. Available properties:");
+        rviz::Property* model_props = robot_model_display->subProp("Robot Model");
+        if (model_props) {
+            for (int i = 0; i < model_props->numChildren(); ++i) {
+                ROS_INFO("Property: %s", model_props->childAt(i)->getName().toStdString().c_str());
+            }
+        }
+    }
+
+
+
+    // 创建工具栏
+    toolBar = addToolBar("ToolBar");
+
+    // 创建状态栏
+    statusBar = new QStatusBar(this);
+    setStatusBar(statusBar);
 
     // 连接信号槽
     QObject::connect(&qnode, SIGNAL(rosShutdown()), this, SLOT(close()));
@@ -50,14 +127,19 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     QObject::connect(&qnode, SIGNAL(imageReceived(const QImage&)),this, SLOT(updateImage(const QImage&)));
 
     if (qnode.init()) {
-        toolBar->setEnabled(true);
+      toolBar->setEnabled(true);
     }
 }
 
 MainWindow::~MainWindow() {
     // 确保正确释放资源
-    if (image_label) delete image_label;
-    if (statusBar) delete statusBar;
+    //if (image_label) delete image_label;
+    //if (statusBar) delete statusBar;
+    //if (rviz_manager) delete rviz_manager;
+    delete rviz_manager;
+    delete rviz_panel;
+    delete image_label;
+    delete statusBar;
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
