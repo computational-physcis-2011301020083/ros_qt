@@ -31,11 +31,6 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     qRegisterMetaType<std::string>("std::string");
     qRegisterMetaType<QImage>("QImage");
 
-    // 创建中心部件和布局
-    //QWidget* centralWidget = new QWidget(this);
-    //QVBoxLayout* mainLayout = new QVBoxLayout(centralWidget);
-    //setCentralWidget(centralWidget);
-
     // 初始化中心部件和布局
     central_widget = new QWidget(this);
     setCentralWidget(central_widget);
@@ -55,7 +50,6 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     //image_label->setAlignment(Qt::AlignCenter);
     image_label->setAlignment(Qt::AlignLeft | Qt::AlignTop);
     image_label->setStyleSheet("border: 1px solid black;");
-    //mainLayout->addWidget(image_label);
     left_layout->addWidget(image_label, 1);  // 权重1，占左侧部分高度
 
     // RViz面板（右下角四分之一区域）
@@ -70,6 +64,9 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     rviz_manager ->initialize();
     rviz_manager ->startUpdate();
 
+    // 绑定渲染面板到RViz管理器
+    rviz_panel->initialize(rviz_manager->getSceneManager(), rviz_manager);
+
     // 设置RViz显示属性
     rviz_frame->setSplashPath("");
     rviz_frame->loadDisplayConfig("");
@@ -77,42 +74,20 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     rviz_frame->setStatusBar(nullptr);
     rviz_frame->setHideButtonVisibility(false);
 
-
     // 添加URDF显示（修正后的代码）
-    rviz::Display* robot_model_display = rviz_manager->createDisplay(
-        "rviz/RobotModel",
-        "Robot Model",
-        true
-    );
-
+    rviz::Display* robot_model_display = rviz_manager->createDisplay("rviz/RobotModel","Robot Model",true);
     if (robot_model_display) {
         robot_model_display->subProp("Robot Description")->setValue("robot_description");
+        robot_model_display->subProp("Visual Enabled")->setValue(true);
+        rviz::ViewManager* view_manager = rviz_manager->getViewManager();
+        if (view_manager) {
+            rviz_manager->setFixedFrame("base_link"); // 关键：固定参考系与URDF根坐标系一致
+        }
+        else {ROS_ERROR("Failed to create rviz view_manager!");}
     }
-    else {
-        ROS_ERROR("Failed to create RobotModel display!");
+    else {ROS_ERROR("Failed to create RobotModel display!");
         return;
     }
-
-    // 方法 1：尝试 "Visual Enabled"（ROS Noetic 常见）
-    if (robot_model_display->subProp("Visual Enabled")) {
-        robot_model_display->subProp("Visual Enabled")->setValue(true);
-    }
-    // 方法 2：尝试 "Visual" -> "Enabled"
-    else if (robot_model_display->subProp("Visual")) {
-        robot_model_display->subProp("Visual")->subProp("Enabled")->setValue(true);
-    }
-    // 方法 3：直接打印所有属性调试
-    else {
-        ROS_WARN("Cannot find 'Show Visual' or 'Visual Enabled' property. Available properties:");
-        rviz::Property* model_props = robot_model_display->subProp("Robot Model");
-        if (model_props) {
-            for (int i = 0; i < model_props->numChildren(); ++i) {
-                ROS_INFO("Property: %s", model_props->childAt(i)->getName().toStdString().c_str());
-            }
-        }
-    }
-
-
 
     // 创建工具栏
     toolBar = addToolBar("ToolBar");

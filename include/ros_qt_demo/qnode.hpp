@@ -14,6 +14,7 @@
 #include <sensor_msgs/Image.h>
 #include <image_transport/image_transport.h>  // 用于图像传输
 #include <cv_bridge/cv_bridge.h>             // 用于ROS图像与OpenCV转换
+#include <rviz/visualization_manager.h>  // RViz核心管理器
 #endif
 #include <string>
 #include <QThread>
