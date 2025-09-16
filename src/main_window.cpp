@@ -13,6 +13,9 @@
 #include <QWidget>
 #include <QMetaType>
 #include <QVector3D>
+#include <QTimer>
+#include <QMessageBox>
+#include <cmath>  // 确保已包含，用于 M_PI
 #include <rviz/tool_manager.h>
 #include <rviz/visualization_manager.h>
 #include <rviz/render_panel.h>
@@ -27,6 +30,13 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     : QMainWindow(parent)
     , qnode(argc, argv)
 {
+
+    ui.setupUi(this); // Calling this incidentally connects all ui's triggers to on_...() callbacks in this class.
+    QObject::connect(ui.actionAbout_Qt, SIGNAL(triggered(bool)), qApp, SLOT(aboutQt())); // qApp is a global variable for the application
+    setWindowIcon(QIcon(":/images/icon.png"));
+    setWindowTitle("TZCO");
+
+
     // 注册std::string类型，使其可以在信号槽中传递
     qRegisterMetaType<std::string>("std::string");
     qRegisterMetaType<QImage>("QImage");
@@ -60,6 +70,11 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     // 配置RViz
     rviz_frame = new rviz::VisualizationFrame();
     rviz_frame->initialize();
+
+    //std::string config_path_str = ros::package::getPath("ros_qt_demo") + "/config/config.rviz";
+    //QString config_path = QString::fromStdString(config_path_str);  // 转换为QString
+    //rviz_frame->loadDisplayConfig(config_path);
+
     rviz_manager = rviz_frame->getManager();
     rviz_manager ->initialize();
     rviz_manager ->startUpdate();
@@ -82,7 +97,63 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
         rviz::ViewManager* view_manager = rviz_manager->getViewManager();
         if (view_manager) {
             rviz_manager->setFixedFrame("base_link"); // 关键：固定参考系与URDF根坐标系一致
+            // 延迟设置视角参数（确保控制器初始化完成）
+                    QTimer::singleShot(500, [=]() {
+                        // 切换到轨道控制器
+                        view_manager->setCurrentViewControllerType("rviz/Orbit");
+
+                        // 获取当前控制器
+                        //QObject* current_ctrl = view_manager->getCurrent();
+                        rviz::ViewController* current_ctrl = view_manager->getCurrent();
+                        if (current_ctrl  && current_ctrl->getClassId() == "rviz/Orbit") {
+                            rviz::Property* pitchProp = current_ctrl ->subProp("Pitch");
+                            if (pitchProp) {
+                                pitchProp->setValue(90.0); // degrees
+                                //ROS_INFO("Pitch");
+                            }
+                        }
+                        /*
+                        if (current_ctrl) {
+                            // 设置俯仰角为180度（上下颠倒）
+                            current_ctrl->setProperty("Target Frame", "map");
+                            current_ctrl->setProperty("Pitch", M_PI);
+                            // 设置聚焦点和距离
+                            current_ctrl->setProperty("Focal Point", "0.0; 0.0; 0.0");
+                            current_ctrl->setProperty("Distance", 5.0);
+
+                            // 强制刷新视角
+                            rviz::Property* pitch_prop = current_ctrl->property("Pitch").value<rviz::Property*>();
+                            if (pitch_prop) {
+                                pitch_prop->changed(); // 触发属性变更
+                            }
+                            rviz_manager->queueRender(); // 刷新渲染
+                        } else {
+                            ROS_ERROR("Failed to get current view controller!");
+                        }*/
+                    });
         }
+            /*
+            // 1. 切换到轨道视角控制器（通过字符串类型名）
+                view_manager->setCurrentViewControllerType("rviz/Orbit");
+
+                // 2. 获取当前控制器（不进行类型转换，直接作为QObject操作）
+                QObject* current_ctrl = view_manager->getCurrent();
+                if (current_ctrl) {
+                    // 3. 通过QObject的属性接口设置参数（通用方式，不依赖具体类）
+                    // 注意：属性名必须与RViz界面中的参数标签完全一致
+                    ROS_INFO("current_ctrl");
+                    current_ctrl->setProperty("Target Frame", "base_link");
+                    current_ctrl->setProperty("Distance", 23.0);         // 相机距离
+                    current_ctrl->setProperty("Yaw", 1.4404);            // 偏航角（45度）
+                    current_ctrl->setProperty("Pitch",0.445398+2.6);         // 俯仰角（-30度）
+                    current_ctrl->setProperty("Focal Point", "0.882142; -1.27381; 0.59571"); // 聚焦点
+
+                    // 4. 触发更新
+                    rviz_manager->queueRender();
+                }
+
+        }
+        */
         else {ROS_ERROR("Failed to create rviz view_manager!");}
     }
     else {ROS_ERROR("Failed to create RobotModel display!");
@@ -146,6 +217,10 @@ void MainWindow::updateImage(const QImage& image)
 
         image_label->setPixmap(QPixmap::fromImage(scaledImage));
     }
+}
+
+void MainWindow::on_actionAbout_triggered() {
+    QMessageBox::about(this, tr("About ..."),tr("<h2>Intelligent Platform</h2><p>Copyright TZCO Robot</p><p>This package is intelligent platform of TZCO.</p>"));
 }
 
 
