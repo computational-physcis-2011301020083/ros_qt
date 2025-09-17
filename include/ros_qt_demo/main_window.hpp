@@ -45,6 +45,8 @@ public Q_SLOTS:
     void updateStatusBar(const std::string& data);
     void updateImage(const QImage& image);  // 新增图像更新槽函数
     void on_actionAbout_triggered();
+    void setupCameraPosition();
+    void setupSceneLighting();
 
 private:
     Ui::MainWindowDesign ui;

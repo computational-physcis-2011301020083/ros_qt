@@ -45,11 +45,9 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     central_widget = new QWidget(this);
     setCentralWidget(central_widget);
     main_layout = new QHBoxLayout(central_widget);  // 主布局：左右各占1/2宽度
-
     // 左侧布局（放原图，占左半部分1/2宽度）
     left_layout = new QVBoxLayout();
     main_layout->addLayout(left_layout, 1);  // 权重1（总宽度的1/2）
-
     // 右侧布局（分上下两部分，各占1/2高度）
     right_layout = new QVBoxLayout();
     main_layout->addLayout(right_layout, 1);  // 权重1（总宽度的1/2）
@@ -66,22 +64,14 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     rviz_panel = new rviz::RenderPanel();
     right_layout->addStretch(1);  // 上半部分留白（占右侧1/2高度）
     right_layout->addWidget(rviz_panel, 1);  // 下半部分放RViz（占右侧1/2高度）
-
     // 配置RViz
     rviz_frame = new rviz::VisualizationFrame();
     rviz_frame->initialize();
-
-    //std::string config_path_str = ros::package::getPath("ros_qt_demo") + "/config/config.rviz";
-    //QString config_path = QString::fromStdString(config_path_str);  // 转换为QString
-    //rviz_frame->loadDisplayConfig(config_path);
-
     rviz_manager = rviz_frame->getManager();
     rviz_manager ->initialize();
     rviz_manager ->startUpdate();
-
     // 绑定渲染面板到RViz管理器
     rviz_panel->initialize(rviz_manager->getSceneManager(), rviz_manager);
-
     // 设置RViz显示属性
     rviz_frame->setSplashPath("");
     rviz_frame->loadDisplayConfig("");
@@ -89,75 +79,20 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     rviz_frame->setStatusBar(nullptr);
     rviz_frame->setHideButtonVisibility(false);
 
-    // 添加URDF显示（修正后的代码）
+    
+
+    // 添加URDF显示
     rviz::Display* robot_model_display = rviz_manager->createDisplay("rviz/RobotModel","Robot Model",true);
     if (robot_model_display) {
         robot_model_display->subProp("Robot Description")->setValue("robot_description");
         robot_model_display->subProp("Visual Enabled")->setValue(true);
-        rviz::ViewManager* view_manager = rviz_manager->getViewManager();
-        if (view_manager) {
-            rviz_manager->setFixedFrame("base_link"); // 关键：固定参考系与URDF根坐标系一致
-            // 延迟设置视角参数（确保控制器初始化完成）
-                    QTimer::singleShot(500, [=]() {
-                        // 切换到轨道控制器
-                        view_manager->setCurrentViewControllerType("rviz/Orbit");
-
-                        // 获取当前控制器
-                        //QObject* current_ctrl = view_manager->getCurrent();
-                        rviz::ViewController* current_ctrl = view_manager->getCurrent();
-                        if (current_ctrl  && current_ctrl->getClassId() == "rviz/Orbit") {
-                            rviz::Property* pitchProp = current_ctrl ->subProp("Pitch");
-                            if (pitchProp) {
-                                pitchProp->setValue(90.0); // degrees
-                                //ROS_INFO("Pitch");
-                            }
-                        }
-                        /*
-                        if (current_ctrl) {
-                            // 设置俯仰角为180度（上下颠倒）
-                            current_ctrl->setProperty("Target Frame", "map");
-                            current_ctrl->setProperty("Pitch", M_PI);
-                            // 设置聚焦点和距离
-                            current_ctrl->setProperty("Focal Point", "0.0; 0.0; 0.0");
-                            current_ctrl->setProperty("Distance", 5.0);
-
-                            // 强制刷新视角
-                            rviz::Property* pitch_prop = current_ctrl->property("Pitch").value<rviz::Property*>();
-                            if (pitch_prop) {
-                                pitch_prop->changed(); // 触发属性变更
-                            }
-                            rviz_manager->queueRender(); // 刷新渲染
-                        } else {
-                            ROS_ERROR("Failed to get current view controller!");
-                        }*/
-                    });
-        }
-            /*
-            // 1. 切换到轨道视角控制器（通过字符串类型名）
-                view_manager->setCurrentViewControllerType("rviz/Orbit");
-
-                // 2. 获取当前控制器（不进行类型转换，直接作为QObject操作）
-                QObject* current_ctrl = view_manager->getCurrent();
-                if (current_ctrl) {
-                    // 3. 通过QObject的属性接口设置参数（通用方式，不依赖具体类）
-                    // 注意：属性名必须与RViz界面中的参数标签完全一致
-                    ROS_INFO("current_ctrl");
-                    current_ctrl->setProperty("Target Frame", "base_link");
-                    current_ctrl->setProperty("Distance", 23.0);         // 相机距离
-                    current_ctrl->setProperty("Yaw", 1.4404);            // 偏航角（45度）
-                    current_ctrl->setProperty("Pitch",0.445398+2.6);         // 俯仰角（-30度）
-                    current_ctrl->setProperty("Focal Point", "0.882142; -1.27381; 0.59571"); // 聚焦点
-
-                    // 4. 触发更新
-                    rviz_manager->queueRender();
-                }
-
-        }
-        */
-        else {ROS_ERROR("Failed to create rviz view_manager!");}
-    }
-    else {ROS_ERROR("Failed to create RobotModel display!");
-        return;
+        rviz_manager->setFixedFrame("base_link");
+        
+        // 延迟设置相机位置
+        QTimer::singleShot(1000, this, SLOT(setupCameraPosition()));
+        QTimer::singleShot(1000, this, SLOT(setupSceneLighting()));
+    } else {
+        ROS_ERROR("Failed to create RobotModel display!");
     }
 
     // 创建工具栏
@@ -179,9 +114,6 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
 
 MainWindow::~MainWindow() {
     // 确保正确释放资源
-    //if (image_label) delete image_label;
-    //if (statusBar) delete statusBar;
-    //if (rviz_manager) delete rviz_manager;
     delete rviz_manager;
     delete rviz_panel;
     delete image_label;
@@ -221,6 +153,96 @@ void MainWindow::updateImage(const QImage& image)
 
 void MainWindow::on_actionAbout_triggered() {
     QMessageBox::about(this, tr("About ..."),tr("<h2>Intelligent Platform</h2><p>Copyright TZCO Robot</p><p>This package is intelligent platform of TZCO.</p>"));
+}
+
+void MainWindow::setupCameraPosition()
+{
+    // 方法2：直接设置相机位置
+    Ogre::Camera* camera = rviz_panel->getCamera();
+    if (camera) {
+        // 设置相机位置 (x, y, z)
+        camera->setPosition(Ogre::Vector3(0.0f, -11.0f, 11.0f));
+        
+        // 设置相机看向的点 (x, y, z)
+        camera->lookAt(Ogre::Vector3(0.0f, 0.0f, 0.0f));
+        
+        // 设置相机的朝向（可选）
+        camera->setDirection(Ogre::Vector3(0.0f, 1.2f, -1.0f));
+        
+        // 设置近剪裁平面（可选）
+        camera->setNearClipDistance(0.01f);
+        
+        // 设置远剪裁平面（可选）
+        camera->setFarClipDistance(1000.0f);
+        
+        // 强制刷新渲染
+        rviz_manager->queueRender();
+        ROS_INFO("Camera position set successfully");
+    } else {
+        ROS_ERROR("Failed to get camera from render panel!");
+    }
+}
+
+void MainWindow::setupSceneLighting()
+{
+    // 获取场景管理器
+    Ogre::SceneManager* scene_manager = rviz_manager->getSceneManager();
+    if (!scene_manager) {
+        ROS_ERROR("Failed to get scene manager!");
+        return;
+    }
+
+    // 检查光源是否已存在，如果不存在则创建
+    Ogre::Light* ambient_light = nullptr;
+    try {
+        ambient_light = scene_manager->getLight("MainAmbientLight");
+    } catch (const Ogre::ItemIdentityException& e) {
+        // 光源不存在，创建新的
+        ambient_light = scene_manager->createLight("MainAmbientLight");
+        ambient_light->setType(Ogre::Light::LT_DIRECTIONAL);
+        ROS_INFO("Created new ambient light: MainAmbientLight");
+    }
+
+    // 设置环境光属性
+    ambient_light->setDiffuseColour(Ogre::ColourValue(0.8f, 0.8f, 0.8f));
+    ambient_light->setSpecularColour(Ogre::ColourValue(0.9f, 0.9f, 0.9f));
+    ambient_light->setDirection(Ogre::Vector3(-1, -1, -1).normalisedCopy());
+
+    // 主方向光 - 使用同样的异常处理方式
+    Ogre::Light* main_light = nullptr;
+    try {
+        main_light = scene_manager->getLight("MainDirectionalLight");
+    } catch (const Ogre::ItemIdentityException& e) {
+        main_light = scene_manager->createLight("MainDirectionalLight");
+        main_light->setType(Ogre::Light::LT_DIRECTIONAL);
+        ROS_INFO("Created new directional light: MainDirectionalLight");
+    }
+
+    // 设置主方向光属性
+    main_light->setDiffuseColour(Ogre::ColourValue(1.0f, 1.0f, 1.0f));
+    main_light->setSpecularColour(Ogre::ColourValue(1.0f, 1.0f, 1.0f));
+    //main_light->setDirection(Ogre::Vector3(-0.5f, -1.0f, -0.5f).normalisedCopy());
+    main_light->setDirection(Ogre::Vector3(0.f, 1.2f, -1.f).normalisedCopy());
+
+
+    // 填充光 - 使用同样的异常处理方式
+    Ogre::Light* fill_light = nullptr;
+    try {
+        fill_light = scene_manager->getLight("FillLight");
+    } catch (const Ogre::ItemIdentityException& e) {
+        fill_light = scene_manager->createLight("FillLight");
+        fill_light->setType(Ogre::Light::LT_DIRECTIONAL);
+        ROS_INFO("Created new fill light: FillLight");
+    }
+
+    // 设置填充光属性
+    fill_light->setDiffuseColour(Ogre::ColourValue(0.4f, 0.4f, 0.6f));
+    fill_light->setSpecularColour(Ogre::ColourValue(0.2f, 0.2f, 0.3f));
+    fill_light->setDirection(Ogre::Vector3(0.5f, -0.5f, -0.5f).normalisedCopy());
+
+    // 强制刷新渲染
+    rviz_manager->queueRender();
+    ROS_INFO("Scene lighting setup complete");
 }
 
 
