@@ -13,6 +13,7 @@
 #include <QWidget>
 #include <QMetaType>
 #include <QVector3D>
+#include <QString>
 #include <QTimer>
 #include <QMessageBox>
 #include <cmath>  // 确保已包含，用于 M_PI
@@ -41,7 +42,9 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     qRegisterMetaType<std::string>("std::string");
     qRegisterMetaType<QImage>("QImage");
 
-    // 初始化中心部件和布局
+
+
+    /* 初始化中心部件和布局
     central_widget = new QWidget(this);
     setCentralWidget(central_widget);
     main_layout = new QHBoxLayout(central_widget);  // 主布局：左右各占1/2宽度
@@ -64,6 +67,41 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     rviz_panel = new rviz::RenderPanel();
     right_layout->addStretch(1);  // 上半部分留白（占右侧1/2高度）
     right_layout->addWidget(rviz_panel, 1);  // 下半部分放RViz（占右侧1/2高度）
+    */ //上下左右四等分
+    
+    // ========== 重构布局：严格左右平分 ==========
+    central_widget = new QWidget(this);
+    setCentralWidget(central_widget);
+    main_layout = new QHBoxLayout(central_widget);  
+    main_layout->setSpacing(0);  // 取消布局间距
+    main_layout->setContentsMargins(0, 0, 0, 0);  // 取消边距
+
+    // 左侧布局（摄像头画面，占1/2宽度，100%高度）
+    left_layout = new QVBoxLayout();
+    left_layout->setSpacing(0);
+    left_layout->setContentsMargins(0, 0, 0, 0);
+    main_layout->addLayout(left_layout, 1);  // 权重1（平分）
+
+    // 右侧布局（RViz，占1/2宽度，100%高度）
+    right_layout = new QVBoxLayout();
+    right_layout->setSpacing(0);
+    right_layout->setContentsMargins(0, 0, 0, 0);
+    main_layout->addLayout(right_layout, 1);  // 权重1（平分）
+
+    // 左侧：摄像头画面（占满左侧）
+    image_label = new QLabel(this);
+    image_label->setText("Waiting for image...");
+    image_label->setAlignment(Qt::AlignCenter);  // 居中显示（可选）
+    image_label->setStyleSheet("border: 1px solid black;");
+    left_layout->addWidget(image_label);  // 无权重，占满左侧
+
+    // 右侧：RViz（占满右侧）
+    rviz_panel = new rviz::RenderPanel();
+    right_layout->addWidget(rviz_panel);  // 无权重，占满右侧
+    // ========== 重构布局：严格左右平分 ==========
+    
+    
+    
     // 配置RViz
     rviz_frame = new rviz::VisualizationFrame();
     rviz_frame->initialize();
@@ -78,6 +116,13 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     rviz_frame->setMenuBar(nullptr);
     rviz_frame->setStatusBar(nullptr);
     rviz_frame->setHideButtonVisibility(false);
+    
+    rviz_frame->setSplashPath("");
+    rviz_frame->loadDisplayConfig("");
+    rviz_frame->setMenuBar(nullptr);
+    rviz_frame->setStatusBar(nullptr);
+    rviz_frame->setHideButtonVisibility(false);
+
 
     
 
@@ -97,7 +142,6 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
 
     // 创建工具栏
     toolBar = addToolBar("ToolBar");
-
     // 创建状态栏
     statusBar = new QStatusBar(this);
     setStatusBar(statusBar);
@@ -161,7 +205,7 @@ void MainWindow::setupCameraPosition()
     Ogre::Camera* camera = rviz_panel->getCamera();
     if (camera) {
         // 设置相机位置 (x, y, z)
-        camera->setPosition(Ogre::Vector3(0.0f, -11.0f, 11.0f));
+        camera->setPosition(Ogre::Vector3(0.0f, -15.0f, 15.0f));
         
         // 设置相机看向的点 (x, y, z)
         camera->lookAt(Ogre::Vector3(0.0f, 0.0f, 0.0f));
@@ -194,14 +238,9 @@ void MainWindow::setupSceneLighting()
 
     // 检查光源是否已存在，如果不存在则创建
     Ogre::Light* ambient_light = nullptr;
-    try {
-        ambient_light = scene_manager->getLight("MainAmbientLight");
-    } catch (const Ogre::ItemIdentityException& e) {
-        // 光源不存在，创建新的
-        ambient_light = scene_manager->createLight("MainAmbientLight");
-        ambient_light->setType(Ogre::Light::LT_DIRECTIONAL);
-        ROS_INFO("Created new ambient light: MainAmbientLight");
-    }
+    ambient_light = scene_manager->createLight("MainAmbientLight");
+    ambient_light->setType(Ogre::Light::LT_DIRECTIONAL);
+    ROS_INFO("Created new ambient light: MainAmbientLight");
 
     // 设置环境光属性
     ambient_light->setDiffuseColour(Ogre::ColourValue(0.8f, 0.8f, 0.8f));
@@ -210,13 +249,10 @@ void MainWindow::setupSceneLighting()
 
     // 主方向光 - 使用同样的异常处理方式
     Ogre::Light* main_light = nullptr;
-    try {
-        main_light = scene_manager->getLight("MainDirectionalLight");
-    } catch (const Ogre::ItemIdentityException& e) {
-        main_light = scene_manager->createLight("MainDirectionalLight");
-        main_light->setType(Ogre::Light::LT_DIRECTIONAL);
-        ROS_INFO("Created new directional light: MainDirectionalLight");
-    }
+    main_light = scene_manager->createLight("MainDirectionalLight");
+    main_light->setType(Ogre::Light::LT_DIRECTIONAL);
+    ROS_INFO("Created new directional light: MainDirectionalLight");
+
 
     // 设置主方向光属性
     main_light->setDiffuseColour(Ogre::ColourValue(1.0f, 1.0f, 1.0f));
@@ -227,13 +263,9 @@ void MainWindow::setupSceneLighting()
 
     // 填充光 - 使用同样的异常处理方式
     Ogre::Light* fill_light = nullptr;
-    try {
-        fill_light = scene_manager->getLight("FillLight");
-    } catch (const Ogre::ItemIdentityException& e) {
-        fill_light = scene_manager->createLight("FillLight");
-        fill_light->setType(Ogre::Light::LT_DIRECTIONAL);
-        ROS_INFO("Created new fill light: FillLight");
-    }
+    fill_light = scene_manager->createLight("FillLight");
+    fill_light->setType(Ogre::Light::LT_DIRECTIONAL);
+    ROS_INFO("Created new fill light: FillLight");
 
     // 设置填充光属性
     fill_light->setDiffuseColour(Ogre::ColourValue(0.4f, 0.4f, 0.6f));

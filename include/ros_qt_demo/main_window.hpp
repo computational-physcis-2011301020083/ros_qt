@@ -29,6 +29,7 @@
 #include <rviz/view_controller.h>
 #include <rviz/default_plugin/view_controllers/orbit_view_controller.h>
 #include "qnode.hpp"
+#include <rviz/tool_manager.h>  // 新增：工具管理器头文件
 
 namespace class1_ros_qt_demo {
 
@@ -60,6 +61,7 @@ private:
     rviz::RenderPanel* rviz_panel;          // RViz渲染面板
     rviz::VisualizationManager* rviz_manager; // RViz管理器
     rviz::VisualizationFrame* rviz_frame;
+
 
     // RViz布局管理器（用于划分界面区域）
     QWidget* central_widget;
