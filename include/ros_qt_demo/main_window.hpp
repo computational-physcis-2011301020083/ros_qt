@@ -68,6 +68,8 @@ private:
     QHBoxLayout* main_layout;    // 主水平布局（分左右两部分）
     QVBoxLayout* left_layout;    // 左侧垂直布局（放原图）
     QVBoxLayout* right_layout;   // 右侧垂直布局（分上下两部分）
+    
+
 
 };
 

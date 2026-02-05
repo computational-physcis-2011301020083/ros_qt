@@ -24,6 +24,10 @@
 #include <rviz/properties/property.h>
 #include <rviz/default_plugin/view_controllers/orbit_view_controller.h>
 #include "../include/ros_qt_demo/main_window.hpp"
+#include <rviz/render_panel.h>
+#include <QGraphicsScene>
+#include <QGraphicsView>
+#include <QGraphicsProxyWidget>
 
 namespace class1_ros_qt_demo {
 
@@ -69,6 +73,7 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     right_layout->addWidget(rviz_panel, 1);  // 下半部分放RViz（占右侧1/2高度）
     */ //上下左右四等分
     
+
     // ========== 重构布局：严格左右平分 ==========
     central_widget = new QWidget(this);
     setCentralWidget(central_widget);
@@ -131,6 +136,7 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     if (robot_model_display) {
         robot_model_display->subProp("Robot Description")->setValue("robot_description");
         robot_model_display->subProp("Visual Enabled")->setValue(true);
+        
         rviz_manager->setFixedFrame("base_link");
         
         // 延迟设置相机位置
@@ -139,6 +145,31 @@ MainWindow::MainWindow(int argc, char** argv, QWidget *parent)
     } else {
         ROS_ERROR("Failed to create RobotModel display!");
     }
+    
+
+   // ========== 新增：PointCloud2点云显示 ==========
+   rviz::Display* point_cloud_display = rviz_manager->createDisplay(
+   "rviz/PointCloud2", 
+   "PointCloud2 Display", 
+    true
+   );
+
+   if (point_cloud_display) {
+    // 核心参数配置
+    point_cloud_display->subProp("Topic")->setValue("/points2");          // 点云话题
+    point_cloud_display->subProp("Color Transformer")->setValue("RGB8");  // 颜色模式
+    point_cloud_display->subProp("Size (Pixels)")->setValue(3);           // 点大小
+    point_cloud_display->subProp("Alpha")->setValue(1.0);                 // 透明度
+    point_cloud_display->subProp("Decay Time")->setValue(0);              // 点云衰减时间（0=不衰减）
+    
+    ROS_INFO("PointCloud2 display configured for /points2 topic!");
+}  else {
+    ROS_ERROR("Failed to create PointCloud2 display!");
+}
+// ========== 新增：PointCloud2点云显示 ==========
+
+
+
 
     // 创建工具栏
     toolBar = addToolBar("ToolBar");
@@ -182,7 +213,7 @@ void MainWindow::updateImage(const QImage& image)
     if (image_label && !image.isNull()) {
         // 计算左上角四分之一区域的大小
         int targetWidth = width() / 2;
-        int targetHeight = height() / 2;
+        int targetHeight = height() ;
 
         // 缩放图像并保持比例
         QImage scaledImage = image.scaled(
@@ -193,6 +224,8 @@ void MainWindow::updateImage(const QImage& image)
 
         image_label->setPixmap(QPixmap::fromImage(scaledImage));
     }
+    
+
 }
 
 void MainWindow::on_actionAbout_triggered() {
@@ -205,13 +238,16 @@ void MainWindow::setupCameraPosition()
     Ogre::Camera* camera = rviz_panel->getCamera();
     if (camera) {
         // 设置相机位置 (x, y, z)
-        camera->setPosition(Ogre::Vector3(0.0f, -15.0f, 15.0f));
+        //camera->setPosition(Ogre::Vector3(0.0f, -15.0f, 15.0f));
+        camera->setPosition(Ogre::Vector3(-15.0f, 0.0f, 15.0f));
         
         // 设置相机看向的点 (x, y, z)
         camera->lookAt(Ogre::Vector3(0.0f, 0.0f, 0.0f));
         
+        
         // 设置相机的朝向（可选）
-        camera->setDirection(Ogre::Vector3(0.0f, 1.2f, -1.0f));
+        //camera->setDirection(Ogre::Vector3(0.0f, 1.2f, -1.0f));
+        camera->setDirection(Ogre::Vector3(1.2f, 0.0f, -1.0f));
         
         // 设置近剪裁平面（可选）
         camera->setNearClipDistance(0.01f);
@@ -235,6 +271,14 @@ void MainWindow::setupSceneLighting()
         ROS_ERROR("Failed to get scene manager!");
         return;
     }
+    
+    //rviz 视角调整
+    // 1. 获取 Ogre 场景的根节点
+    Ogre::SceneNode* root_scene_node = scene_manager->getRootSceneNode();
+    // 2. 旋转根节点（90度，可选旋转轴，按需选择，核心仅1行）
+    root_scene_node->yaw(Ogre::Degree(45)); // 绕 Y 轴顺时针旋转 90 度
+    root_scene_node->pitch(Ogre::Degree(-90)); // 绕 X 轴旋转 90 度
+    root_scene_node->yaw(Ogre::Degree(-45));  
 
     // 检查光源是否已存在，如果不存在则创建
     Ogre::Light* ambient_light = nullptr;
